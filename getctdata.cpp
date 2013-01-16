@@ -1,3 +1,4 @@
+
 /*****************************************************************************
 ** FILE IDENTIFICATION
 **
@@ -22,7 +23,6 @@
 #define NUMBER_OF_DIMENSIONS 3
 #define MAX_NUMBER_OF_CHARS 128
 
-
 extern "C" {
 #include <netcdf.h>
 #include <hdf5.h>
@@ -39,18 +39,24 @@ extern "C" {
 #include <math.h>
 #include <sys/stat.h>
 
-void get_min_max(char * option, unsigned int all, unsigned int& min, unsigned int& max)
+int get_min_max(char * option, unsigned int all, unsigned int& min, unsigned int& max)
 {
   char *pch;
   char *minmax=(char*)malloc(MAX_NUMBER_OF_CHARS);
   unsigned int m1,m2;
   pch=strchr(option,',');
+  if (pch ==NULL)
+   {
+   cerr<< " try using comma -flag  min,max ..." << endl;
+   return 1;
+   }
   strncpy(minmax,pch+1, sizeof(option));
   if (atol(option) >=0 && atol(option) < all) { min = atol(option);}
   else { min = 0; }
   if (atol(minmax) >=0 && atol(minmax) < all) { max = atol(minmax);}
   else { max = all; }
   free(minmax);
+  return 0;
 }
 
 using namespace std;
@@ -96,91 +102,108 @@ tag 65281
   double separations[NUMBER_OF_DIMENSIONS];
   char *f=(char*)malloc(MAX_NUMBER_OF_CHARS);
   char *p=(char*)malloc(MAX_NUMBER_OF_CHARS);
+  char *currentdir = (char*)malloc(MAX_NUMBER_OF_CHARS);
+  char *lp =  (char*)malloc(MAX_NUMBER_OF_CHARS);
+  char *fp =  (char*)malloc(MAX_NUMBER_OF_CHARS);
+
   char *specimen=(char*)malloc(MAX_NUMBER_OF_CHARS);
-  char *fullbinpath=(char*)malloc(MAX_NUMBER_OF_CHARS);
   char *fullpath=(char*)malloc(MAX_NUMBER_OF_CHARS);
-  char *fulloutputpath=(char*)malloc(MAX_NUMBER_OF_CHARS);
+  char *fullfilepath=(char*)malloc(MAX_NUMBER_OF_CHARS);
   char *filename = getCmdOption(argv, argv + argc, "-f");
   char *path = getCmdOption(argv, argv + argc, "-p");
+  char *log = getCmdOption(argv, argv + argc, "-l");
   char *rowoption = getCmdOption(argv, argv + argc, "-r");
   char *columnoption = getCmdOption(argv, argv + argc, "-c");
   char *sliceoption =  getCmdOption(argv, argv + argc, "-s");
   char *pch;
  
-  string logfile;
   string history;
-    if (!filename and !path)
+    
+  strcpy(currentdir,getcwd(NULL,0));
+  strcat(currentdir, "/");
+  
+  if (!log)
+  {
+    cerr<< "Usage: ct_to_minc -l logfile -p inputpath -f output.mnc"<< endl;
+    cerr<< "converting all .tiff files in given directory to a 3D minc image" << endl;
+    cerr<< " -r rowmin,rowmax -c colmin,colmax -s slicemin,slicemax" << endl;
+    return 1;
+  } 
+  else
+  {
+    strcpy(lp,ExtractDirectory(log).c_str());   
+    if (lp[0] == 0) // use current directory
     {
-     cerr<< "Usage: ctdataTOminc -p inputpath -f output.mnc"<< endl;
-     cerr<< "converting all .tiff files in given directory to a 3D minc image" << endl;
-     return 1;
-     } 
+     strcpy(lp,currentdir);
+     strcat(lp,log);
+    }  
+    else
+     strcpy(lp,log);
+  }
+  cout << lp << endl;
   if (filename)
     {
      pch=strrchr(filename,'.');
      strncpy(f,filename,pch-filename);
      strcat(f,"_volume");
      strcat(f,".mnc");
-     cout << "Creating 3D dataset " << f << endl;
+     strcpy(fp,ExtractDirectory(filename).c_str());  
+     if (fp[0] == 0) // use current directory
+     {
+     strcpy(fp,currentdir);
+     strcat(fp,f);
+     }  
+     else
+       strcpy(fp,f);
+     cout << "Creating 3D dataset " << fp << endl;
     }
   else
     {
-    cout << "Creating 3D dataset 'volume.mnc' " << endl;
-    
-    strcpy(f,"volume.mnc");
-    }
-  if (path)
-    {
-     cout << "Using already reconstructed files in directory :" << endl;
-     cout << path << endl;
+    strcpy(fp,currentdir);
+    strcat(fp,"volume.mnc");
+    cout << "Creating 3D dataset in current directory " << fp << endl;
 
+    }
+  
+  
+  if (path)
+   {
+     cout << "Using already reconstructed files in directory : " << endl;
+     cout << path << endl;
+     // make sure backslash is at end of path
      if (path[strlen(path)-1] != '/')
        {
        int len = strlen(path);
        path[len] = '/';
        path[len+1] = '\0';
-       
        }
      
-     strcpy(p,path);
-     strcpy(fullpath,p);
-     
-    }
-  else
-    {
-     cout << "In current directory" << endl;
-     p[0]='.';
-     p[1]='\0';
-    }
+     strcpy(fullpath,path);
+   }
+   else // use logfile dir if not specified!
+     strcpy(fullpath,ExtractDirectory(lp).c_str()); 
+     //strcpy(fullpath, currentdir);
+  // lp-->logfile with path
+  // fp-->filename with path
+  //fullpath --> fullpath or currentdir
   
-  if (stat(ExtractDirectory(f).c_str(), &sb) == 0 )
-    strcpy(fulloutputpath,f);
-  else
-    {
-    strcat(fullpath,f);
-    strcpy(fulloutputpath,fullpath);
-    }
+  readCtLogFile(lp, ct);
+  
   //get all filesnames.tif, and logfile sorted
-  
-  result=getDirtiff(p,files,logfile);
+  result=getDirtiff(fullpath,files,ct.getFilenamePrefix());
   if (result!=0)
-    {
-    cerr<< "Error: having diffculty locating files, check the directory" << endl;
-    return 1;
-    }
-  // insert path of logfile if its not the current directory
-  if (p[0] !='.')
-    logfile.insert(0,p);
-  
-  readCtLogFile(logfile, ct);
-  
-    
+  {
+   cerr<< "Error: having diffculty locating files, check the directory" << endl;
+   return 1;
+  }
+
   // check to see if user wants parts of image instead of whole
   allrows=ct.getNumberOfRows();
   rowmax = ny = allrows;
   if (rowoption)
   {//figure out row min and max
-   get_min_max(rowoption,allrows, rowmin, rowmax);
+   result = get_min_max(rowoption,allrows, rowmin, rowmax);
+   if (result !=0) return 1;
    ny = rowmax - rowmin;
   }
   
@@ -188,15 +211,18 @@ tag 65281
   columnmax = nx = allcolumns;
   if (columnoption)
   {//figure out column min and max
-   get_min_max(columnoption,allcolumns, columnmin, columnmax);
+   result = get_min_max(columnoption,allcolumns, columnmin, columnmax);
+   if (result !=0) return 1;
    nx = columnmax - columnmin;
   }    
-
+    
   allslices = files.size();
   slicemax = nz = allslices;
+  cout << sliceoption << endl;
   if (sliceoption)
-  {// figure out slice min and max
-   get_min_max(sliceoption,allslices, slicemin, slicemax);
+  {
+   result = get_min_max(sliceoption,allslices, slicemin, slicemax);
+   if (result !=0) return 1;
    nz = slicemax - slicemin;
   }
   cout << "Located number of reconstructed slices in tif format: " << allslices << endl;
@@ -213,9 +239,8 @@ tag 65281
    cerr<< "Memory error" << endl;
    return 1;
   } 
- 
   //create minc file 
-  result = open_minc_file_and_write(fulloutputpath, &fileout,nz ,ny, nx, starts, separations, USHORT);
+  result = open_minc_file_and_write(fp, &fileout,nz ,ny, nx, starts, separations, USHORT);
   if(result == MI_ERROR)
     {
      cerr <<"Error creating minc file" << endl;
@@ -224,12 +249,11 @@ tag 65281
   vector<string>::iterator it = files.begin() + slicemin;
   for(k=0; k< nz; k++)
     {
-    if (p[0] != '.')
-      strcpy(fullbinpath,p);
-    strcat(fullbinpath, it->c_str());    
-    cout << fullbinpath << endl;
+    strcpy(fullfilepath, fullpath);
+    strcat(fullfilepath, it->c_str());    
+    cout << fullfilepath << endl;
     oldhandler = TIFFSetWarningHandler(NULL);
-    tFile = TIFFOpen(fullbinpath, "r");
+    tFile = TIFFOpen(fullfilepath, "r");
     if (tFile==NULL)
     {
       cout<< "reading error, can not read tif file" << endl;
@@ -267,7 +291,6 @@ tag 65281
     }  
     c1++;   
     }   
-    
     start[0] = (unsigned long)k; start[1] = start[2] = 0;
     count[0] = 1;
     count[1] = (unsigned long)ny;
@@ -280,7 +303,7 @@ tag 65281
      return 1;
     }
     it++;
-    fullbinpath[0]='\0';
+    fullfilepath[0]='\0'; // empty string for next filename
     TIFFClose(tFile);
     } // end of iterator loop
     
@@ -291,29 +314,36 @@ tag 65281
     cerr <<"Error in setting values" << endl;
     return 1;
     }
-  strcpy(specimen,ExtractFileName(logfile).c_str());
-    
-  // add all ct attributes to mincheader
+  strcpy(specimen,ExtractFileName(lp).c_str());
+  // add all ct attributes to mincheader (based on discussion JGSLED Jan 14/2013)
   result = miset_attr_values(fileout, MI_TYPE_STRING, "/acquisition", "specimen", strlen(specimen), specimen);
-  result = miset_attr_values(fileout, MI_TYPE_INT, "/acquisition", "numberoffiles", 1, &ct.getNumberOfFiles());
-  result = miset_attr_values(fileout, MI_TYPE_INT, "/acquisition", "numberofrows", 1, &ct.getNumberOfRows());
-  result = miset_attr_values(fileout, MI_TYPE_INT, "/acquisition", "numberofcolumns", 1, &ct.getNumberOfColumns());
   result = miset_attr_values(fileout, MI_TYPE_STRING, "/acquisition", "binning", 3, ct.getBinning().c_str());
   result = miset_attr_values(fileout, MI_TYPE_FLOAT, "/acquisition", "imagerotation", 1, &ct.getImageRotation());
-  result = miset_attr_values(fileout, MI_TYPE_FLOAT, "/acquisition", "imagepixelsize", 1, &ct.getImagePixelSize());
-  result = miset_attr_values(fileout, MI_TYPE_INT, "/acquisition", "depth", 1, &ct.getDepth());
-
+  
   result = miset_attr_values(fileout, MI_TYPE_INT, "/acquisition", "exposure", 1, &ct.getExposure());
   result = miset_attr_values(fileout, MI_TYPE_FLOAT, "/acquisition", "rotationstep", 1, &ct.getRotationStep());
   result = miset_attr_values(fileout, MI_TYPE_STRING, "/acquisition", "rotation360", 2, ct.getRotation360().c_str());
+
+  result = miset_attr_values(fileout, MI_TYPE_INT, "/acquisition", "sourcevoltage", 1, &ct.getSourceVoltage());
+
+  result = miset_attr_values(fileout, MI_TYPE_INT, "/acquisition", "sourcecurrent", 1, &ct.getSourceCurrent());
+
+  result = miset_attr_values(fileout, MI_TYPE_FLOAT, "/acquisition", "verticalobjectposition", 1, &ct.getVerticalObjectPosition());
+
+  result = miset_attr_values(fileout, MI_TYPE_FLOAT, "/acquisition", "objecttosource", 1, &ct.getObjectToSource());
+
+  result = miset_attr_values(fileout, MI_TYPE_FLOAT, "/acquisition", "cameratosource", 1, &ct.getCameraToSource());
+
+ 
+  result = miset_attr_values(fileout, MI_TYPE_STRING, "/acquisition", "filter", 10, ct.getFilter().c_str());
 
   if(result == MI_ERROR)
     {
      cerr <<"Error! having trouble setting one or more attributes." << endl;
      return 1;
     }  
-  // now adding the entire content of logfile to /CT  
-  pFile = fopen ( logfile.c_str() , "rb" );
+    // now adding the entire content of logfile to /CT  
+  pFile = fopen ( lp , "rb" );
   if (pFile==NULL) 
   {
   cerr <<"Error! opening log file to add to mincheader." << endl;
@@ -335,39 +365,41 @@ tag 65281
   }
   
   result = miset_attr_values(fileout, MI_TYPE_STRING,"/CT", "logfile", lSize, txtbuffer);
- if(result == MI_ERROR)
- {
+  if(result == MI_ERROR)
+  {
   cerr <<"Error! having trouble setting one or more attributes." << endl;
   return 1;
- }  
+  }  
   // close logfile
   fclose (pFile);
-
-// add short history to minc header
+  // add short history to minc header
   time_t t = time(0);
   tm* localtm = localtime(&t);
   history.append(asctime(localtm));
   history.append("Created using MICe CT_MINC software, from ");
-  history.append(p);
+  history.append(fullpath);
   history.append("*.tif files and log file ");
-  history.append(logfile);
+  history +=lp;
   history.append("\n");
+  
   result = miadd_history_attr(fileout, history.length(), history.c_str());
   if(result == MI_ERROR)
    {
    cerr <<"Error in setting history" << endl;
    return 1;
    }
-  free (f);
-  free (p);
-  free (fullpath);
-  free (fullbinpath);
+  free(f);
+  free(p);
+  free(currentdir);
+  free(fp);
+  free(lp);
+  free(fullpath);
+  free(fullfilepath);
   // _TIFFfree(tbuf);
   free(tbuf);
   free(txtbuffer);
-  free (buffer);
-  free (fulloutputpath);
-  free (specimen);
+  free(buffer);
+  free(specimen);
   result = miclose_volume(fileout);
   if(!result) { return 1; }
     return 0;
