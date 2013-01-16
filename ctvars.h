@@ -2,21 +2,30 @@
 
 
 class ct_vars {
-
+  string FilenamePrefix;
   long NumberOfFiles;
   long NumberOfRows;
   long NumberOfColumns;
   string Binning;
   float ImageRotation;
   float ImagePixelSize;
-  long Depth;
   long Exposure;
   float RotationStep;
   string Rotation360;
+  long SourceVoltage;
+  long SourceCurrent;
+  float VerticalObjectPosition;
+  float ObjectToSource;
+  float CameraToSource;
+  string Filter;
 
   public:
   ct_vars();
   ~ct_vars();
+
+  void setFilenamePrefix(string filenameprefix)
+  {FilenamePrefix = filenameprefix;}
+  inline string getFilenamePrefix() {return FilenamePrefix;}
 
   void setNumberOfFiles(long numberoffiles)
   {NumberOfFiles = numberoffiles;}
@@ -42,10 +51,6 @@ class ct_vars {
   { ImagePixelSize= impixsize;}
   inline float& getImagePixelSize() {return ImagePixelSize;}
 
-  void setDepth(long depth)
-  { Depth= depth;}
-  inline long& getDepth() {return Depth;}
-  
   void setExposure(long exp)
   { Exposure = exp;}
   inline long& getExposure() {return Exposure;}
@@ -57,6 +62,32 @@ class ct_vars {
   void setRotation360(string rotation360)
   { Rotation360 = rotation360;}
   inline string getRotation360() {return Rotation360;}
+
+  void setSourceVoltage(long svoltage)
+  {SourceVoltage = svoltage;}
+  inline long& getSourceVoltage() {return SourceVoltage;}
+
+  void setSourceCurrent(long scurrent)
+  {SourceCurrent = scurrent;}
+  inline long& getSourceCurrent() {return SourceCurrent;}
+
+  void setVerticalObjectPosition(float vposition)
+  {VerticalObjectPosition = vposition;}
+  inline float& getVerticalObjectPosition() {return VerticalObjectPosition;}
+  
+  void setObjectToSource(float objecttosource)
+  {ObjectToSource = objecttosource;}
+  inline float& getObjectToSource() {return ObjectToSource;}
+
+  void setCameraToSource(float cameratosource)
+  {CameraToSource = cameratosource;}
+  inline float& getCameraToSource() {return CameraToSource;}
+
+  void setFilter(string filter)
+  {Filter = filter;}
+  inline string getFilter() {return Filter;}
+
+  
   
 };
 
