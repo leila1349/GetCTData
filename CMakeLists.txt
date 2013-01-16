@@ -11,7 +11,7 @@ ${OPT_recon_SOURCE_DIR}/GetOPTData/filehandle.cpp
 ctvars.cpp
 getctdata.cpp
 )
-ADD_EXECUTABLE(ctdataTOminc ${GETCTDATA_SRC})
-TARGET_LINK_LIBRARIES(ctdataTOminc useMINC2 tiff)
+ADD_EXECUTABLE(ct_to_minc ${GETCTDATA_SRC})
+TARGET_LINK_LIBRARIES(ct_to_minc useMINC2 tiff)
 
-INSTALL(TARGETS ctdataTOminc DESTINATION bin)
+INSTALL(TARGETS ct_to_minc DESTINATION bin)
